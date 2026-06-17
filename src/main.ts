@@ -1,13 +1,21 @@
 import { determineFormat, readFileAsText } from "./files";
 import { loadDocument } from "./app-state";
+import { mountReviewUI } from "./ui";
 
 const loadScreen = document.getElementById("loadScreen")!;
+const settingsScreen = document.getElementById("settingsScreen")!;
+const reviewScreen = document.getElementById("reviewScreen")!;
 const dropzone = document.getElementById("dropzone")!;
 const fileInput = document.getElementById("fileInput") as HTMLInputElement;
 const chooseFileBtn = document.getElementById("chooseFileBtn")!;
 const pasteText = document.getElementById("pasteText") as HTMLTextAreaElement;
 const reviewPasteBtn = document.getElementById("reviewPasteBtn")!;
 const loadStatus = document.getElementById("loadStatus")!;
+
+function showScreen(screen: HTMLElement): void {
+  [loadScreen, settingsScreen, reviewScreen].forEach((s) => s.classList.remove("active"));
+  screen.classList.add("active");
+}
 
 async function startReviewFromSource(source: string, title: string): Promise<void> {
   if (!source.trim()) {
@@ -20,7 +28,9 @@ async function startReviewFromSource(source: string, title: string): Promise<voi
     loadStatus.textContent = "Sentence Gate could not find reviewable sentences in this text.";
     return;
   }
-  console.log("Loaded session (ui.ts wiring lands in a later task):", state);
+  loadStatus.textContent = "";
+  showScreen(reviewScreen);
+  mountReviewUI(state);
 }
 
 chooseFileBtn.addEventListener("click", () => fileInput.click());
@@ -54,4 +64,7 @@ reviewPasteBtn.addEventListener("click", async () => {
   await startReviewFromSource(pasteText.value, "Pasted text");
 });
 
-void loadScreen;
+document.getElementById("openSettingsFromLoadBtn")!.addEventListener("click", () => showScreen(settingsScreen));
+document.getElementById("openSettingsFromReviewBtn")!.addEventListener("click", () => showScreen(settingsScreen));
+document.getElementById("backToLoadBtn")!.addEventListener("click", () => showScreen(loadScreen));
+document.getElementById("backToLoadFromReviewBtn")!.addEventListener("click", () => showScreen(loadScreen));
