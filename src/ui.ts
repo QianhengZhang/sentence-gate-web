@@ -9,6 +9,8 @@ import {
   styleBaselineSummary,
   styleComparisonSummary
 } from "./render-helpers";
+import { diagnoseSentence, diagnosisCacheKey, rewriteCacheKey, suggestRewriteOptions } from "./openai";
+import { getSetting } from "./storage";
 
 interface Decision {
   status: string;
@@ -311,6 +313,76 @@ function speak(): void {
   window.speechSynthesis.speak(utterance);
 }
 
+async function askAi(): Promise<void> {
+  const item = currentSentence();
+  aiBySentence[item.id] = { loading: true };
+  renderAi(aiBySentence[item.id]);
+  try {
+    const model = (await getSetting<string>("openaiModel")) || "gpt-5.5";
+    const maxContext = (await getSetting<number>("maxContextSentences")) ?? 1;
+    const cacheKey = await diagnosisCacheKey(model, item.text);
+    const cached = state.diagnosisCache[cacheKey] as any;
+    if (cached && cached.diagnosis) {
+      aiBySentence[item.id] = { ...cached.diagnosis, cached: true };
+      if (currentSentence().id === item.id) renderAi(aiBySentence[item.id]);
+      return;
+    }
+
+    const diagnosis = await diagnoseSentence({
+      model,
+      sentence: item,
+      previous: state.session.sentences.slice(Math.max(0, index - maxContext), index).map((s: any) => s.text),
+      next: state.session.sentences.slice(index + 1, index + 1 + maxContext).map((s: any) => s.text),
+      repetitionCandidates: item.repetitionCandidates || [],
+      styleProfile: state.styleProfile
+    });
+    state.diagnosisCache[cacheKey] = { model, sentence: item.text, diagnosis, updatedAt: new Date().toISOString() };
+    await persistReviewState(state);
+    aiBySentence[item.id] = diagnosis;
+    if (currentSentence().id === item.id) renderAi(aiBySentence[item.id]);
+  } catch (error) {
+    aiBySentence[item.id] = { error: error instanceof Error ? error.message : String(error) };
+    if (currentSentence().id === item.id) renderAi(aiBySentence[item.id]);
+  }
+}
+
+async function askRewrite(): Promise<void> {
+  const item = currentSentence();
+  rewriteBySentence[item.id] = { loading: true };
+  renderRewrite(rewriteBySentence[item.id]);
+  try {
+    const model = (await getSetting<string>("openaiModel")) || "gpt-5.5";
+    const maxContext = (await getSetting<number>("maxContextSentences")) ?? 1;
+    const cacheKey = await rewriteCacheKey(model, item.text);
+    const cached = state.diagnosisCache[cacheKey] as any;
+    if (cached && cached.rewriteOptions) {
+      rewriteBySentence[item.id] = { ...cached.rewriteOptions, cached: true };
+      if (currentSentence().id === item.id) renderRewrite(rewriteBySentence[item.id]);
+      return;
+    }
+
+    const rewriteOptions = await suggestRewriteOptions({
+      model,
+      sentence: item,
+      previous: state.session.sentences.slice(Math.max(0, index - maxContext), index).map((s: any) => s.text),
+      next: state.session.sentences.slice(index + 1, index + 1 + maxContext).map((s: any) => s.text),
+      styleProfile: state.styleProfile
+    });
+    state.diagnosisCache[cacheKey] = {
+      model,
+      sentence: item.text,
+      rewriteOptions,
+      updatedAt: new Date().toISOString()
+    };
+    await persistReviewState(state);
+    rewriteBySentence[item.id] = rewriteOptions;
+    if (currentSentence().id === item.id) renderRewrite(rewriteBySentence[item.id]);
+  } catch (error) {
+    rewriteBySentence[item.id] = { error: error instanceof Error ? error.message : String(error) };
+    if (currentSentence().id === item.id) renderRewrite(rewriteBySentence[item.id]);
+  }
+}
+
 let bound = false;
 function bindEvents(): void {
   if (bound) return;
@@ -323,6 +395,12 @@ function bindEvents(): void {
   byId("prevBtn").addEventListener("click", () => moveWithinFilter(-1));
   byId("nextBtn").addEventListener("click", () => moveWithinFilter(1));
   byId("speakBtn").addEventListener("click", speak);
+  byId<HTMLButtonElement>("aiBtn").addEventListener("click", () => {
+    void askAi();
+  });
+  byId<HTMLButtonElement>("rewriteBtn").addEventListener("click", () => {
+    void askRewrite();
+  });
 
   els.filter.addEventListener("change", () => {
     filter = els.filter.value;
