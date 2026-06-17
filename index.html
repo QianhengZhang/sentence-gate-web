@@ -2,10 +2,298 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sentence Gate</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #ffffff;
+      --fg: #1a1a1a;
+      --muted: #6b7280;
+      --border: #d1d5db;
+      --button: #2563eb;
+      --button-fg: #ffffff;
+      --secondary: #e5e7eb;
+      --secondary-fg: #111827;
+      --accent: #2563eb;
+      --warn: #b45309;
+      --error: #b91c1c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1e1e1e;
+        --fg: #e5e5e5;
+        --muted: #9ca3af;
+        --border: #3f3f46;
+        --button: #3b82f6;
+        --button-fg: #0b1220;
+        --secondary: #2d2d30;
+        --secondary-fg: #e5e5e5;
+        --accent: #60a5fa;
+        --warn: #f59e0b;
+        --error: #f87171;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    button {
+      min-height: 32px;
+      border: 0;
+      border-radius: 4px;
+      padding: 6px 11px;
+      background: var(--secondary);
+      color: var(--secondary-fg);
+      cursor: pointer;
+      font: inherit;
+    }
+    button.primary { background: var(--button); color: var(--button-fg); }
+    button:focus { outline: 1px solid var(--accent); outline-offset: 2px; }
+    textarea, input[type="text"], input[type="password"], select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+      padding: 8px;
+      font: inherit;
+      border-radius: 4px;
+    }
+    .screen { display: none; padding: 22px; max-width: 1200px; margin: 0 auto; }
+    .screen.active { display: block; }
+    .kicker { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+    .dropzone.dragover { border-color: var(--accent); color: var(--fg); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .panel { display: grid; gap: 10px; align-content: start; }
+    .metric { border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    .metric strong { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    details { border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+    .status-pill {
+      display: inline-block;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 2px 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(140px, 0.45fr) minmax(420px, 1.9fr) minmax(220px, 0.75fr);
+      min-height: 100vh;
+    }
+    aside, main { padding: 22px; border-right: 1px solid var(--border); }
+    aside:last-child { border-right: 0; }
+    .context { display: grid; gap: 16px; align-content: center; min-height: calc(100vh - 44px); }
+    .context-sentence { color: var(--muted); line-height: 1.5; font-size: 12px; }
+    .current-marker { border-left: 3px solid var(--accent); padding-left: 12px; line-height: 1.5; font-size: 13px; }
+    main { display: grid; grid-template-rows: auto 1fr auto; gap: 20px; min-width: 0; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; }
+    .progress { width: 100%; height: 6px; border: 1px solid var(--border); background: transparent; }
+    .progress > div { height: 100%; background: var(--accent); width: 0; }
+    .filterbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; }
+    .toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+    .toggles label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .sentence-wrap { display: grid; align-content: center; min-height: 420px; }
+    .sentence { font-size: 34px; line-height: 1.48; max-width: 960px; }
+    .mark-adverb { color: var(--warn); border-bottom: 2px solid var(--warn); }
+    .mark-punctuation { color: var(--error); font-weight: 700; }
+    textarea.editor { min-height: 96px; line-height: 1.45; }
+    .ai-box { border: 1px solid var(--border); border-radius: 6px; padding: 12px; display: grid; gap: 8px; }
+    .rewrite-option { display: grid; gap: 6px; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+    .source-preview { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.6; max-height: 240px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
+    .source-preview mark { background: var(--accent); color: var(--bg); }
+
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; }
+      aside, main { border-right: 0; border-bottom: 1px solid var(--border); }
+      .context { min-height: auto; }
+      .sentence { font-size: 22px; }
+    }
+  </style>
 </head>
 <body>
-  <div id="app">Loading…</div>
+  <div id="loadScreen" class="screen active">
+    <h1>Sentence Gate</h1>
+    <p class="kicker">Human-in-the-loop sentence review for AI-assisted academic writing. Everything runs in this browser tab — nothing is uploaded anywhere except direct calls you trigger to OpenAI.</p>
+    <div id="dropzone" class="dropzone">Drop a .tex / .md / .markdown / .txt file here, or use the buttons below.</div>
+    <div class="actions">
+      <button id="chooseFileBtn" class="primary">Choose File…</button>
+      <input id="fileInput" type="file" accept=".tex,.ltx,.md,.markdown,.txt" style="display:none">
+      <button id="openSettingsFromLoadBtn">Settings</button>
+    </div>
+    <details style="margin-top: 20px;">
+      <summary>Or paste text to review</summary>
+      <textarea id="pasteText" placeholder="Paste text here" style="min-height: 160px;"></textarea>
+      <div class="actions" style="margin-top: 8px;">
+        <button id="reviewPasteBtn" class="primary">Review Pasted Text</button>
+      </div>
+    </details>
+    <p id="loadStatus" class="status-pill"></p>
+  </div>
+
+  <div id="settingsScreen" class="screen">
+    <h1>Settings</h1>
+    <div class="panel" style="max-width: 560px;">
+      <div class="metric">
+        <strong>OpenAI API Key</strong>
+        <input id="apiKeyInput" type="password" placeholder="sk-...">
+        <div class="actions" style="margin-top: 8px;">
+          <button id="saveApiKeyBtn" class="primary">Save Key</button>
+          <button id="clearApiKeyBtn">Clear Key</button>
+          <span id="apiKeyStatus" class="status-pill"></span>
+        </div>
+        <p class="kicker">Stored only in this browser's localStorage. Requests go straight from this page to OpenAI — do not use this on a shared or public computer.</p>
+      </div>
+      <div class="metric">
+        <strong>Model</strong>
+        <input id="modelInput" type="text" value="gpt-5.5">
+      </div>
+      <div class="metric">
+        <strong>Context sentences sent to AI calls</strong>
+        <input id="maxContextInput" type="text" value="1">
+      </div>
+      <div class="metric">
+        <strong>Style Profile</strong>
+        <p id="styleProfileSummary" class="kicker">No style profile loaded.</p>
+        <input id="styleFilesInput" type="file" multiple webkitdirectory style="display:none">
+        <div class="actions">
+          <button id="buildStyleProfileBtn">Build From Files/Folder…</button>
+          <button id="exportStyleProfileBtn">Export JSON</button>
+          <input id="importStyleProfileInput" type="file" accept="application/json" style="display:none">
+          <button id="importStyleProfileBtn">Import JSON</button>
+          <button id="clearStyleProfileBtn">Clear</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="backToLoadBtn" class="primary">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="reviewScreen" class="screen">
+    <div class="shell">
+      <aside class="context">
+        <div>
+          <div class="kicker">Previous</div>
+          <div id="previous" class="context-sentence"></div>
+        </div>
+        <div>
+          <div class="kicker">Current</div>
+          <div id="currentMini" class="current-marker"></div>
+        </div>
+        <div>
+          <div class="kicker">Next</div>
+          <div id="next" class="context-sentence"></div>
+        </div>
+      </aside>
+
+      <main>
+        <div class="topbar">
+          <span id="counter"></span>
+          <span id="location"></span>
+          <span id="status" class="status-pill">unreviewed</span>
+        </div>
+        <div class="progress" aria-hidden="true"><div id="progress"></div></div>
+        <div class="filterbar">
+          <label>
+            Filter
+            <select id="filter">
+              <option value="all">All sentences</option>
+              <option value="unreviewed">Unreviewed</option>
+              <option value="accepted">Accepted</option>
+              <option value="revise">Revise</option>
+              <option value="repeated">Repeated</option>
+              <option value="delete">Delete</option>
+              <option value="unsure">Unsure</option>
+            </select>
+          </label>
+          <div class="toggles">
+            <label><input id="autoRead" type="checkbox"> Auto Read</label>
+            <label><input id="requireRead" type="checkbox"> Require Read Before Accept</label>
+            <span id="readStatus" class="status-pill">not read</span>
+          </div>
+          <span id="filterCount"></span>
+        </div>
+        <div class="sentence-wrap"><div id="sentence" class="sentence"></div></div>
+        <div>
+          <div class="actions" style="margin-top: 10px;">
+            <button class="primary" data-decision="accepted">Accept</button>
+            <button data-decision="revise">Revise</button>
+            <button data-decision="repeated">Repeated</button>
+            <button data-decision="unsure">Unsure</button>
+            <button id="prevBtn" title="Previous sentence">Previous</button>
+            <button id="nextBtn" title="Next sentence">Next</button>
+            <button id="speakBtn" title="Read current sentence aloud">Read Aloud</button>
+            <span id="workflowStatus" class="status-pill"></span>
+          </div>
+          <details>
+            <summary>Edit And Notes</summary>
+            <div class="kicker">Edit Current Sentence</div>
+            <textarea id="editText" class="editor"></textarea>
+            <div class="actions" style="margin-top: 8px; margin-bottom: 14px;">
+              <button id="applyEditBtn" class="primary">Apply Edit</button>
+              <button data-decision="delete">Delete</button>
+              <span id="editStatus" class="status-pill"></span>
+            </div>
+            <textarea id="note" placeholder="Optional note for yourself"></textarea>
+          </details>
+          <details>
+            <summary>AI And Tools</summary>
+            <div class="actions">
+              <button id="aiBtn" title="Ask for AI diagnosis">AI Diagnosis</button>
+              <button id="rewriteBtn" title="Ask for rewrite options">Rewrite Options</button>
+              <button id="revealBtn" title="Show current sentence in source preview">Reveal Source</button>
+              <button id="exportBtn" title="Export review report">Export Report</button>
+              <button id="downloadDocBtn" title="Download the edited document">Download Edited Document</button>
+              <button id="openSettingsFromReviewBtn">Settings</button>
+              <button id="backToLoadFromReviewBtn">Open Different File</button>
+            </div>
+          </details>
+          <details id="sourcePreviewDetails">
+            <summary>Source Preview</summary>
+            <div id="sourcePreview" class="source-preview"></div>
+          </details>
+        </div>
+      </main>
+
+      <aside class="panel">
+        <div class="metric"><strong>Review Progress</strong><span id="reviewProgress"></span></div>
+        <div class="metric"><strong>Status Counts</strong><span id="statusCounts"></span></div>
+        <div class="metric"><strong>Section Progress</strong><span id="sectionProgress"></span></div>
+        <div class="metric"><strong>Length</strong><span id="length"></span></div>
+        <div class="metric"><strong>Adverbs</strong><span id="adverbs"></span></div>
+        <div class="metric"><strong>Special Punctuation</strong><span id="punctuation"></span></div>
+        <details>
+          <summary>Analysis</summary>
+          <div class="metric"><strong>Style Baseline</strong><span id="styleBaseline"></span></div>
+          <div class="metric"><strong>Style Comparison</strong><span id="styleComparison"></span></div>
+          <div class="metric"><strong>Rare Word Candidates</strong><span id="rare"></span></div>
+          <div class="metric"><strong>AI-like Phrases</strong><span id="phrases"></span></div>
+          <div class="metric"><strong>Document Echo Candidates</strong><span id="echo"></span></div>
+        </details>
+        <details>
+          <summary>AI Output</summary>
+          <div class="ai-box"><strong>AI Diagnosis</strong><div id="aiResult">Not requested.</div></div>
+          <div class="ai-box"><strong>Rewrite Options</strong><div id="rewriteResult">Not requested.</div></div>
+        </details>
+      </aside>
+    </div>
+  </div>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
