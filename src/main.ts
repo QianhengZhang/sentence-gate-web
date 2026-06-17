@@ -1,6 +1,7 @@
 import { determineFormat, readFileAsText } from "./files";
 import { loadDocument } from "./app-state";
 import { mountReviewUI } from "./ui";
+import { mountSettingsUI } from "./settings";
 
 const loadScreen = document.getElementById("loadScreen")!;
 const settingsScreen = document.getElementById("settingsScreen")!;
@@ -64,7 +65,13 @@ reviewPasteBtn.addEventListener("click", async () => {
   await startReviewFromSource(pasteText.value, "Pasted text");
 });
 
-document.getElementById("openSettingsFromLoadBtn")!.addEventListener("click", () => showScreen(settingsScreen));
-document.getElementById("openSettingsFromReviewBtn")!.addEventListener("click", () => showScreen(settingsScreen));
+document.getElementById("openSettingsFromLoadBtn")!.addEventListener("click", () => {
+  showScreen(settingsScreen);
+  mountSettingsUI();
+});
+document.getElementById("openSettingsFromReviewBtn")!.addEventListener("click", () => {
+  showScreen(settingsScreen);
+  mountSettingsUI();
+});
 document.getElementById("backToLoadBtn")!.addEventListener("click", () => showScreen(loadScreen));
 document.getElementById("backToLoadFromReviewBtn")!.addEventListener("click", () => showScreen(loadScreen));
