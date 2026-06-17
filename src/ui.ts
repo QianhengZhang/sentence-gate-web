@@ -424,6 +424,23 @@ async function applyCurrentEdit(): Promise<void> {
   }
 }
 
+function revealSource(): void {
+  const item = currentSentence();
+  if (!Number.isInteger(item.sourceStart) || !Number.isInteger(item.sourceEnd)) {
+    els.workflowStatus.textContent = "This sentence cannot be mapped back to a source range yet.";
+    return;
+  }
+  const details = byId<HTMLDetailsElement>("sourcePreviewDetails");
+  details.open = true;
+  const preview = byId("sourcePreview");
+  const before = escapeHtml(state.source.slice(0, item.sourceStart));
+  const marked = escapeHtml(state.source.slice(item.sourceStart, item.sourceEnd));
+  const after = escapeHtml(state.source.slice(item.sourceEnd));
+  preview.innerHTML = `${before}<mark id="sourceMark">${marked}</mark>${after}`;
+  document.getElementById("sourceMark")?.scrollIntoView({ block: "center" });
+  els.workflowStatus.textContent = "Revealed in source preview.";
+}
+
 let bound = false;
 function bindEvents(): void {
   if (bound) return;
@@ -447,6 +464,7 @@ function bindEvents(): void {
   });
   byId<HTMLButtonElement>("exportBtn").addEventListener("click", exportReport);
   byId<HTMLButtonElement>("downloadDocBtn").addEventListener("click", downloadEditedDocument);
+  els.revealBtn.addEventListener("click", revealSource);
 
   els.filter.addEventListener("change", () => {
     filter = els.filter.value;
