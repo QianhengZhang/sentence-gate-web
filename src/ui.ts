@@ -1,5 +1,5 @@
 import type { AppState } from "./app-state";
-import { persistReviewState } from "./app-state";
+import { applyEdit, persistReviewState } from "./app-state";
 import {
   echoSummary,
   escapeHtml,
@@ -11,6 +11,8 @@ import {
 } from "./render-helpers";
 import { diagnoseSentence, diagnosisCacheKey, rewriteCacheKey, suggestRewriteOptions } from "./openai";
 import { getSetting } from "./storage";
+import { buildReviewReport } from "./report";
+import { downloadText } from "./files";
 
 interface Decision {
   status: string;
@@ -383,6 +385,45 @@ async function askRewrite(): Promise<void> {
   }
 }
 
+function exportReport(): void {
+  const report = buildReviewReport({
+    title: state.session.title,
+    sourceTitle: state.title,
+    sentenceCount: state.session.sentenceCount,
+    sentences: state.session.sentences,
+    decisions: state.decisions,
+    sentenceIdAt: (sentence: any) => sentence.id
+  });
+  const safeTitle = state.session.title.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  downloadText(`${safeTitle}.${timestamp}.review-report.md`, report, "text/markdown");
+  els.workflowStatus.textContent = "Report downloaded.";
+}
+
+function downloadEditedDocument(): void {
+  const ext = state.format === "latex" ? ".tex" : state.format === "markdown" ? ".md" : ".txt";
+  const base = state.title.replace(/\.[^.]+$/, "") || "document";
+  downloadText(`${base}.edited${ext}`, state.source, "text/plain");
+  els.workflowStatus.textContent = "Edited document downloaded.";
+}
+
+async function applyCurrentEdit(): Promise<void> {
+  els.editStatus.textContent = "saving...";
+  try {
+    const nextIndex = await applyEdit(state, index, els.editText.value);
+    await persistReviewState(state);
+    Object.keys(aiBySentence).forEach((key) => delete aiBySentence[key]);
+    Object.keys(rewriteBySentence).forEach((key) => delete rewriteBySentence[key]);
+    readSentenceId = null;
+    lastAutoReadId = null;
+    index = nextIndex;
+    render();
+    els.editStatus.textContent = "Saved and re-split.";
+  } catch (error) {
+    els.editStatus.textContent = error instanceof Error ? error.message : String(error);
+  }
+}
+
 let bound = false;
 function bindEvents(): void {
   if (bound) return;
@@ -401,6 +442,11 @@ function bindEvents(): void {
   byId<HTMLButtonElement>("rewriteBtn").addEventListener("click", () => {
     void askRewrite();
   });
+  els.applyEditBtn.addEventListener("click", () => {
+    void applyCurrentEdit();
+  });
+  byId<HTMLButtonElement>("exportBtn").addEventListener("click", exportReport);
+  byId<HTMLButtonElement>("downloadDocBtn").addEventListener("click", downloadEditedDocument);
 
   els.filter.addEventListener("change", () => {
     filter = els.filter.value;
