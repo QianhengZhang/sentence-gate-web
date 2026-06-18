@@ -423,9 +423,23 @@ Add a new rule directly after it:
       grid-template-columns: 0 minmax(420px, 1.9fr) minmax(220px, 0.75fr);
     }
     .shell.context-collapsed .context {
-      display: none;
+      visibility: hidden;
+      overflow: hidden;
+      padding: 0;
     }
 ```
+
+**Correction (found during implementation, verified with real browser layout
+measurements):** the original draft of this step used `display: none;` on
+`.context`. That's wrong — `display: none` removes a grid item from CSS Grid's
+auto-placement entirely, which shifts `main` and `aside.panel` into the wrong
+explicit columns (confirmed by measuring `getBoundingClientRect()` on a real
+page: `main` collapsed to ~45px and `aside.panel` ballooned to ~828px,
+overlapping the topbar). `visibility: hidden` keeps the item in its grid track
+(so column assignment stays correct) while still making it invisible;
+`overflow: hidden; padding: 0;` shrinks the now-empty track's rendered content
+down to ~1px so it doesn't leave a visible gap. Use the code block above, not
+`display: none`.
 
 - [ ] **Step 4: Verify the build still succeeds with the HTML changes alone**
 
