@@ -28,6 +28,10 @@ const aiBySentence: Record<string, any> = {};
 const rewriteBySentence: Record<string, any> = {};
 let readSentenceId: string | null = null;
 let lastAutoReadId: string | null = null;
+let speechPlaybackState: "idle" | "speaking" | "paused" = "idle";
+// Stays set while paused (only cleared in stopSpeaking/onend/onerror) so navigating
+// away while paused still triggers cleanup via resetReadStateForCurrentSentence.
+let speakingForSentenceId: string | null = null;
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -48,6 +52,7 @@ const els = {
   autoRead: byId<HTMLInputElement>("autoRead"),
   requireRead: byId<HTMLInputElement>("requireRead"),
   readStatus: byId("readStatus"),
+  speakBtn: byId<HTMLButtonElement>("speakBtn"),
   sentence: byId("sentence"),
   editText: byId<HTMLTextAreaElement>("editText"),
   applyEditBtn: byId<HTMLButtonElement>("applyEditBtn"),
@@ -109,6 +114,9 @@ function moveWithinFilter(delta: number): void {
 function resetReadStateForCurrentSentence(): void {
   if (readSentenceId !== currentSentence().id) {
     readSentenceId = null;
+  }
+  if (speakingForSentenceId !== null && speakingForSentenceId !== currentSentence().id) {
+    stopSpeaking();
   }
 }
 
@@ -300,6 +308,20 @@ function decide(status: string): void {
   render();
 }
 
+function updateSpeakButtonLabel(): void {
+  els.speakBtn.textContent =
+    speechPlaybackState === "speaking" ? "Pause" : speechPlaybackState === "paused" ? "Resume" : "Read Aloud";
+}
+
+function stopSpeaking(): void {
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+  speechPlaybackState = "idle";
+  speakingForSentenceId = null;
+  updateSpeakButtonLabel();
+}
+
 function speak(): void {
   const speakingSentenceId = currentSentence().id;
   if (!("speechSynthesis" in window)) {
@@ -310,9 +332,38 @@ function speak(): void {
   els.readStatus.textContent = "reading...";
   const utterance = new SpeechSynthesisUtterance(currentSentence().text);
   utterance.rate = 0.88;
-  utterance.onend = () => markRead(speakingSentenceId);
-  utterance.onerror = () => markRead(speakingSentenceId);
+  utterance.onend = () => {
+    speechPlaybackState = "idle";
+    speakingForSentenceId = null;
+    updateSpeakButtonLabel();
+    markRead(speakingSentenceId);
+  };
+  utterance.onerror = () => {
+    speechPlaybackState = "idle";
+    speakingForSentenceId = null;
+    updateSpeakButtonLabel();
+    markRead(speakingSentenceId);
+  };
   window.speechSynthesis.speak(utterance);
+  speechPlaybackState = "speaking";
+  speakingForSentenceId = speakingSentenceId;
+  updateSpeakButtonLabel();
+}
+
+function toggleSpeech(): void {
+  if (speechPlaybackState === "idle") {
+    speak();
+    return;
+  }
+  if (!("speechSynthesis" in window)) return;
+  if (speechPlaybackState === "speaking") {
+    window.speechSynthesis.pause();
+    speechPlaybackState = "paused";
+  } else if (speechPlaybackState === "paused") {
+    window.speechSynthesis.resume();
+    speechPlaybackState = "speaking";
+  }
+  updateSpeakButtonLabel();
 }
 
 async function askAi(): Promise<void> {
@@ -452,7 +503,7 @@ function bindEvents(): void {
 
   byId("prevBtn").addEventListener("click", () => moveWithinFilter(-1));
   byId("nextBtn").addEventListener("click", () => moveWithinFilter(1));
-  byId("speakBtn").addEventListener("click", speak);
+  els.speakBtn.addEventListener("click", toggleSpeech);
   byId<HTMLButtonElement>("aiBtn").addEventListener("click", () => {
     void askAi();
   });
@@ -493,7 +544,7 @@ function bindEvents(): void {
     if (event.key.toLowerCase() === "u") decide("unsure");
     if (event.key === " " || event.key.toLowerCase() === "s") {
       event.preventDefault();
-      speak();
+      toggleSpeech();
     }
   });
 }
@@ -506,6 +557,9 @@ export function mountReviewUI(initialState: AppState): void {
   Object.keys(rewriteBySentence).forEach((key) => delete rewriteBySentence[key]);
   readSentenceId = null;
   lastAutoReadId = null;
+  speechPlaybackState = "idle";
+  speakingForSentenceId = null;
+  updateSpeakButtonLabel();
   bindEvents();
   render();
 }
