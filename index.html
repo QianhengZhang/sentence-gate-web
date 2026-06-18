@@ -126,7 +126,8 @@
     .source-preview mark { background: var(--accent); color: var(--bg); }
 
     @media (max-width: 900px) {
-      .shell { grid-template-columns: 1fr; }
+      .shell, .shell.context-collapsed { grid-template-columns: 1fr; }
+      .shell.context-collapsed .context { display: none; }
       aside, main { border-right: 0; border-bottom: 1px solid var(--border); }
       .context { min-height: auto; }
       .sentence { font-size: 22px; }
