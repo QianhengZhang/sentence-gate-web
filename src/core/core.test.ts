@@ -104,4 +104,25 @@ Authors can catch repeated claims when sections are drafted independently.
     expect(styledSession.sentences[0].styleComparison.lengthBand).toBe("longer than baseline");
     expect(styledSession.sentences[0].styleComparison.unfamiliarAdverbs).toEqual(["unfortunately"]);
   });
+
+  it("strips standalone tabular/longtable blocks instead of leaking table markup", () => {
+    const withTable = `
+\\section{Results}
+We summarize the results below.
+
+\\begin{tabular}{ll}
+A & B \\\\
+C & D \\\\
+\\end{tabular}
+
+The results show our method outperforms the baseline.
+`;
+    const session = createReviewSession(withTable, { title: "Results" });
+    const texts = session.sentences.map((s) => s.text);
+    expect(texts).toEqual([
+      "We summarize the results below.",
+      "The results show our method outperforms the baseline."
+    ]);
+    expect(texts.join(" ")).not.toMatch(/&|\\\\/);
+  });
 });

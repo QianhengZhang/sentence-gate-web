@@ -77,7 +77,7 @@ function stripLatexComments(source) {
 
 function removeLatexBlocks(source) {
   return source
-    .replace(/\\begin\{(figure|table|equation|align\*?|tikzpicture|lstlisting|verbatim)\}[\s\S]*?\\end\{\1\}/g, " ")
+    .replace(/\\begin\{(figure|table|equation|align\*?|tikzpicture|lstlisting|verbatim|tabular\*?|tabularx|longtable|array)\}[\s\S]*?\\end\{\1\}/g, " ")
     .replace(/\\bibliography\{[^}]*\}/g, " ")
     .replace(/\\printbibliography\b/g, " ");
 }
