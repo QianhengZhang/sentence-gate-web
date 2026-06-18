@@ -95,6 +95,14 @@
       grid-template-columns: minmax(140px, 0.45fr) minmax(420px, 1.9fr) minmax(220px, 0.75fr);
       min-height: 100vh;
     }
+    .shell.context-collapsed {
+      grid-template-columns: 0 minmax(420px, 1.9fr) minmax(220px, 0.75fr);
+    }
+    .shell.context-collapsed .context {
+      visibility: hidden;
+      overflow: hidden;
+      padding: 0;
+    }
     aside, main { padding: 22px; border-right: 1px solid var(--border); }
     aside:last-child { border-right: 0; }
     .context { display: grid; gap: 16px; align-content: center; min-height: calc(100vh - 44px); }
@@ -185,7 +193,7 @@
   </div>
 
   <div id="reviewScreen" class="screen">
-    <div class="shell">
+    <div class="shell" id="shell">
       <aside class="context">
         <div>
           <div class="kicker">Previous</div>
@@ -205,6 +213,7 @@
         <div class="topbar">
           <span id="counter"></span>
           <span id="location"></span>
+          <button id="toggleContextBtn" title="Show or hide the previous/next context panel">Hide Context</button>
           <span id="status" class="status-pill">unreviewed</span>
         </div>
         <div class="progress" aria-hidden="true"><div id="progress"></div></div>

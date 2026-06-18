@@ -21,6 +21,8 @@ interface Decision {
   updatedAt: string;
 }
 
+const CONTEXT_COLLAPSED_KEY = "sentenceGate.contextCollapsed";
+
 let state: AppState;
 let index = 0;
 let filter = "all";
@@ -72,7 +74,9 @@ const els = {
   echo: byId("echo"),
   aiResult: byId("aiResult"),
   rewriteResult: byId("rewriteResult"),
-  workflowStatus: byId("workflowStatus")
+  workflowStatus: byId("workflowStatus"),
+  shell: byId("shell"),
+  toggleContextBtn: byId<HTMLButtonElement>("toggleContextBtn")
 };
 
 function currentSentence(): any {
@@ -492,6 +496,12 @@ function revealSource(): void {
   els.workflowStatus.textContent = "Revealed in source preview.";
 }
 
+function updateContextToggle(): void {
+  const collapsed = localStorage.getItem(CONTEXT_COLLAPSED_KEY) === "1";
+  els.shell.classList.toggle("context-collapsed", collapsed);
+  els.toggleContextBtn.textContent = collapsed ? "Show Context" : "Hide Context";
+}
+
 let bound = false;
 function bindEvents(): void {
   if (bound) return;
@@ -516,6 +526,16 @@ function bindEvents(): void {
   byId<HTMLButtonElement>("exportBtn").addEventListener("click", exportReport);
   byId<HTMLButtonElement>("downloadDocBtn").addEventListener("click", downloadEditedDocument);
   els.revealBtn.addEventListener("click", revealSource);
+
+  els.toggleContextBtn.addEventListener("click", () => {
+    const collapsed = els.shell.classList.contains("context-collapsed");
+    if (collapsed) {
+      localStorage.removeItem(CONTEXT_COLLAPSED_KEY);
+    } else {
+      localStorage.setItem(CONTEXT_COLLAPSED_KEY, "1");
+    }
+    updateContextToggle();
+  });
 
   els.filter.addEventListener("change", () => {
     filter = els.filter.value;
@@ -560,6 +580,7 @@ export function mountReviewUI(initialState: AppState): void {
   speechPlaybackState = "idle";
   speakingForSentenceId = null;
   updateSpeakButtonLabel();
+  updateContextToggle();
   bindEvents();
   render();
 }
